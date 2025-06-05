@@ -1,8 +1,12 @@
-import cv2
-from ultralytics import YOLO
+import cv2   #for computer vision tasks
+from ultralytics import YOLO #for YOLOv8 object detection
+from collections import defaultdict # to count objects
 
 # Load YOLOv8 model
-model = YOLO('yolov8n.pt')  # use 'yolov8s.pt' or 'yolov8m.pt' for higher accuracy
+model = YOLO('yolov8s.pt')  # We can also use 'yolov8m.pt' or 'yolov8l.pt' for better accuracy
+
+# Get class names from the model
+class_names = model.names
 
 # Open webcam
 cap = cv2.VideoCapture(0)
@@ -16,22 +20,27 @@ while True:
         break
 
     results = model(frame, stream=True)
-    person_count = 0
+    object_counts = defaultdict(int)
 
     for r in results:
         for box in r.boxes:
             cls = int(box.cls[0])
-            if cls == 0:  # class 0 = person
-                person_count += 1
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.putText(frame, 'Person', (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            class_name = class_names[cls]
+            object_counts[class_name] += 1
 
-    cv2.putText(frame, f'People Detected: {person_count}', (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(frame, class_name, (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    cv2.imshow("Multi-Person Detection", frame)
+    # Display all object counts on the frame
+    y_offset = 30
+    for obj_name, count in object_counts.items():
+        cv2.putText(frame, f'{obj_name}: {count}', (10, y_offset),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+        y_offset += 30
+
+    cv2.imshow("Object Detection and Counting", frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
